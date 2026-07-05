@@ -854,6 +854,7 @@
 
     const map = {};
     rows.forEach(row => {
+      if (row.EVENT_NM === "토요휴업일") return; // Saturdays are already weekends, redundant to call out
       if (!map[row.AA_YMD]) map[row.AA_YMD] = [];
       map[row.AA_YMD].push({ name: row.EVENT_NM, tag: row.SBTR_DD_SC_NM });
     });
