@@ -335,26 +335,100 @@
     text-align: center;
   }
   /* timetable */
+  .tt-tabs-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
   .tt-tabs {
+    flex: 1;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 12px;
   }
-  .tt-tab {
+  .tt-tab-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     border: 1px solid var(--school-border);
     background: var(--school-hover);
-    color: var(--school-text);
     border-radius: 999px;
-    padding: 6px 14px;
-    font-size: 0.82rem;
-    cursor: pointer;
+    padding: 2px 4px 2px 14px;
   }
-  .tt-tab.active {
+  .tt-tab-wrap.active {
     background: var(--school-accent);
     border-color: var(--school-accent);
+  }
+  .tt-tab {
+    border: none;
+    background: none;
+    color: var(--school-text);
+    font-size: 0.82rem;
+    padding: 4px 0;
+    cursor: pointer;
+  }
+  .tt-tab-wrap.active .tt-tab { color: #fff; font-weight: 700; }
+  .tt-tab-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: rgba(0,0,0,0.08);
+    color: var(--school-text-dim);
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 0.68rem;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+  }
+  .tt-tab-wrap.active .tt-tab-remove {
+    background: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.9);
+  }
+  .tt-add-btn {
+    flex: 0 0 auto;
+    border: 1px dashed var(--school-border);
+    background: none;
+    color: var(--school-text-dim);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .tt-add-form {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: var(--school-hover);
+    border-radius: 12px;
+    font-size: 0.82rem;
+  }
+  .tt-add-form label { display: flex; align-items: center; gap: 4px; }
+  .tt-add-form input {
+    width: 52px;
+    padding: 4px 6px;
+    border: 1px solid var(--school-border);
+    border-radius: 6px;
+    background: var(--school-card-bg);
+    color: var(--school-text);
+    font-size: 0.82rem;
+  }
+  .tt-add-form button {
+    border: none;
+    background: var(--school-accent);
     color: #fff;
-    font-weight: 700;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
   }
   .tt-nav {
     display: flex;
@@ -544,12 +618,14 @@
 
     <div class="school-section">
       <div class="section-title">📚 시간표</div>
-      <div class="tt-tabs" id="tt-tabs">
-        <button class="tt-tab active" data-grade="5" data-class="8">5학년 8반</button>
-        <button class="tt-tab" data-grade="6" data-class="2">6학년 2반</button>
-        <button class="tt-tab" data-grade="6" data-class="5">6학년 5반</button>
-        <button class="tt-tab" data-grade="6" data-class="7">6학년 7반</button>
-        <button class="tt-tab" data-grade="6" data-class="8">6학년 8반</button>
+      <div class="tt-tabs-row">
+        <div class="tt-tabs" id="tt-tabs"></div>
+        <button class="tt-add-btn" id="tt-add-btn" aria-label="학년/반 추가">+ 추가</button>
+      </div>
+      <div class="tt-add-form" id="tt-add-form" style="display:none;">
+        <label>학년 <input type="number" id="tt-add-grade" min="1" max="6" value="1"></label>
+        <label>반 <input type="number" id="tt-add-class" min="1" max="20" value="1"></label>
+        <button id="tt-add-confirm">추가</button>
       </div>
       <div class="tt-nav">
         <button id="tt-prev">‹ 이전주</button>
@@ -911,7 +987,30 @@
     return monday;
   }
 
-  let currentKid = { grade: "5", classNm: "8" };
+  const KIDS_STORAGE_KEY = "dangseo_tt_kids";
+  const DEFAULT_KIDS = [
+    { grade: "5", classNm: "8" },
+    { grade: "6", classNm: "2" },
+    { grade: "6", classNm: "5" },
+    { grade: "6", classNm: "7" },
+    { grade: "6", classNm: "8" },
+  ];
+
+  function loadKids() {
+    try {
+      const raw = localStorage.getItem(KIDS_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch (e) { /* ignore malformed storage, fall back to defaults */ }
+    return DEFAULT_KIDS.slice();
+  }
+
+  function saveKids() {
+    localStorage.setItem(KIDS_STORAGE_KEY, JSON.stringify(kids));
+  }
+
+  let kids = loadKids();
+  let currentKid = kids[0];
   let weekOffset = 0;
   const ttCache = {};
 
@@ -993,6 +1092,10 @@
 
   async function loadTimetable() {
     const content = document.getElementById("timetable-content");
+    if (!currentKid) {
+      content.innerHTML = `<div class="school-status">우측 "+ 추가" 버튼으로 학년/반을 추가해주세요.</div>`;
+      return;
+    }
     content.innerHTML = `<div class="school-status">시간표를 불러오는 중입니다...</div>`;
     const monday = getMonday(new Date());
     monday.setDate(monday.getDate() + weekOffset * 7);
@@ -1004,15 +1107,73 @@
     }
   }
 
+  function isSameKid(a, b) {
+    return !!a && !!b && a.grade === b.grade && a.classNm === b.classNm;
+  }
+
+  function renderTabs() {
+    const container = document.getElementById("tt-tabs");
+    container.innerHTML = kids.map((k, idx) => `
+      <span class="tt-tab-wrap ${isSameKid(k, currentKid) ? "active" : ""}">
+        <button class="tt-tab" data-idx="${idx}">${k.grade}학년 ${k.classNm}반</button>
+        <button class="tt-tab-remove" data-idx="${idx}" aria-label="${k.grade}학년 ${k.classNm}반 삭제">×</button>
+      </span>
+    `).join("");
+  }
+
+  function selectKid(kid) {
+    currentKid = kid;
+    weekOffset = 0;
+    renderTabs();
+    loadTimetable();
+  }
+
+  function removeKid(idx) {
+    const removed = kids[idx];
+    kids.splice(idx, 1);
+    saveKids();
+    if (isSameKid(currentKid, removed)) {
+      currentKid = kids[0] || null;
+      weekOffset = 0;
+    }
+    renderTabs();
+    loadTimetable();
+  }
+
+  function addKid(grade, classNm) {
+    grade = String(grade);
+    classNm = String(classNm);
+    if (!grade || !classNm) return;
+    if (kids.some(k => k.grade === grade && k.classNm === classNm)) return;
+    kids.push({ grade, classNm });
+    saveKids();
+    selectKid(kids[kids.length - 1]);
+  }
+
   function initTimetableNav() {
     document.getElementById("tt-tabs").addEventListener("click", (e) => {
-      const btn = e.target.closest(".tt-tab");
-      if (!btn) return;
-      document.querySelectorAll(".tt-tab").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      currentKid = { grade: btn.dataset.grade, classNm: btn.dataset.class };
-      loadTimetable();
+      const removeBtn = e.target.closest(".tt-tab-remove");
+      if (removeBtn) {
+        removeKid(Number(removeBtn.dataset.idx));
+        return;
+      }
+      const tabBtn = e.target.closest(".tt-tab");
+      if (tabBtn) {
+        selectKid(kids[Number(tabBtn.dataset.idx)]);
+      }
     });
+
+    const addForm = document.getElementById("tt-add-form");
+    document.getElementById("tt-add-btn").addEventListener("click", () => {
+      addForm.style.display = addForm.style.display === "none" ? "flex" : "none";
+    });
+    document.getElementById("tt-add-confirm").addEventListener("click", () => {
+      const grade = document.getElementById("tt-add-grade").value;
+      const classNm = document.getElementById("tt-add-class").value;
+      addKid(grade, classNm);
+      addForm.style.display = "none";
+    });
+
     document.getElementById("tt-prev").addEventListener("click", () => {
       weekOffset--;
       loadTimetable();
@@ -1024,6 +1185,7 @@
   }
 
   initTimetableNav();
+  renderTabs();
   loadTimetable();
 })();
 
