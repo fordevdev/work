@@ -106,8 +106,9 @@
   }
   .details-compact {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 6px;
+    align-items: flex-start;
   }
   .detail-chip {
     font-size: 0.72rem;
@@ -118,12 +119,9 @@
   }
   .hourly-v {
     flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 6px;
-    max-height: 172px;
-    overflow-y: auto;
-    padding-right: 2px;
   }
   .hour-item-v {
     display: flex;
@@ -144,13 +142,6 @@
     font-size: 0.8rem;
     padding: 16px 0;
   }
-  .weather-footer-note {
-    text-align: center;
-    font-size: 0.62rem;
-    color: var(--text-dim);
-    margin-top: 12px;
-  }
-
   /* ---------- School widget ---------- */
   .school-card {
     background: var(--school-card-bg);
@@ -341,13 +332,6 @@
     padding: 20px 0;
     text-align: center;
   }
-  .school-footer-note {
-    text-align: center;
-    font-size: 0.68rem;
-    color: var(--school-text-dim);
-    margin-top: 20px;
-  }
-
   /* timetable */
   .tt-tabs {
     display: flex;
@@ -504,9 +488,8 @@
     .weather-card .temp { font-size: 1.7rem; }
     .weather-card .desc { margin: 4px 0 6px; font-size: 0.76rem; }
     .detail-chip { font-size: 0.66rem; padding: 3px 8px; }
-    .hourly-v { max-height: 132px; gap: 4px; }
+    .hourly-v { gap: 4px; }
     .hour-item-v { font-size: 0.66rem; padding: 3px 6px; }
-    .weather-footer-note { margin-top: 6px; }
   }
 </style>
 </head>
@@ -534,7 +517,6 @@
       <div id="weather-content">
         <div class="status">날씨 정보를 불러오는 중입니다...</div>
       </div>
-      <div class="weather-footer-note">데이터 제공: Open-Meteo.com</div>
     </div>
   </div>
 
@@ -597,8 +579,6 @@
         <li class="school-status">공지사항을 불러오는 중입니다...</li>
       </ul>
     </div>
-
-    <div class="school-footer-note">데이터 제공: 나이스(NEIS) 교육정보 개방 포털 · 서울당서초등학교 홈페이지</div>
   </div>
 
 </div>
@@ -656,7 +636,7 @@
       `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m` +
       `&hourly=temperature_2m,weather_code` +
       `&daily=temperature_2m_max,temperature_2m_min` +
-      `&timezone=Asia%2FSeoul&forecast_days=1`;
+      `&timezone=Asia%2FSeoul&forecast_days=2`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("API 요청 실패: " + res.status);
     return res.json();
@@ -673,7 +653,7 @@
 
     const startIdx = Math.max(0, data.hourly.time.findIndex(t => new Date(t) >= now));
     let hourlyHtml = "";
-    for (let i = startIdx; i < Math.min(startIdx + 6, data.hourly.time.length); i++) {
+    for (let i = startIdx; i < Math.min(startIdx + 8, data.hourly.time.length); i++) {
       const [, hIcon] = describe(data.hourly.weather_code[i]);
       hourlyHtml += `
         <div class="hour-item-v">
