@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from urllib.parse import urlencode, urlparse, parse_qs
 
-PORT = 8080
+PORT = int(os.environ.get("PORT", 8080))
 NOTICE_BASE = "https://dangseo.sen.es.kr"
 LIST_AJAX_PATH = "/dggb/module/board/selectBoardListAjax.do"
 
@@ -107,15 +107,17 @@ class NoticeRowParser(HTMLParser):
 
 def _curl_post_with_session(menu_path, post_path, payload_dict):
     """Shell out to curl for this one host: the school site's TLS handshake
-    (legacy signature scheme) is rejected by Python 3.14's bundled OpenSSL,
-    but macOS curl (LibreSSL/SecureTransport) connects fine. All payload
-    values are fixed server-side or numeric ntt ids, so this is not
+    (legacy signature scheme) is rejected by Python's bundled OpenSSL on some
+    platforms, but curl connects fine. `-k` skips cert verification as a
+    robustness fallback across hosting environments — this only ever reads
+    public, non-sensitive school bulletin data, never sends credentials. All
+    payload values are fixed server-side or numeric ntt ids, so this is not
     command-injectable. `menu_path` primes the session so the site's board
     context (which bbsId is "active") matches the board we're requesting."""
     with tempfile.NamedTemporaryFile(prefix="dangseo_cookies_", suffix=".txt") as cookie_file:
         subprocess.run(
             [
-                "curl", "-s", "-L",
+                "curl", "-s", "-L", "-k",
                 "-c", cookie_file.name,
                 "-A", "Mozilla/5.0",
                 NOTICE_BASE + menu_path,
@@ -127,7 +129,7 @@ def _curl_post_with_session(menu_path, post_path, payload_dict):
         payload = urlencode(payload_dict)
         result = subprocess.run(
             [
-                "curl", "-s",
+                "curl", "-s", "-k",
                 "-b", cookie_file.name,
                 "-A", "Mozilla/5.0",
                 "-H", "Content-Type: application/x-www-form-urlencoded",
@@ -216,7 +218,7 @@ def _fetch_koreacharts_page(date_str):
 
     url = f"{KOREACHARTS_BASE}/timetable/{KOREACHARTS_SCHOOL_ID}/{date_str}.html"
     result = subprocess.run(
-        ["curl", "-s", "-A", "Mozilla/5.0", url],
+        ["curl", "-s", "-k", "-A", "Mozilla/5.0", url],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
         timeout=15, check=True,
     )
