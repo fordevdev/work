@@ -488,9 +488,9 @@
     .hour-item { min-width: 44px; padding: 5px 6px; }
 
     /* Compact weather card so it doesn't push everything below it down;
-       it's moved to the end of .layout on mobile (see reflow script),
-       so it needs its own top margin now that it's outside .top-row's gap */
-    .weather-card { margin-top: 14px; }
+       it's moved to the very top of .layout on mobile (see reflow script),
+       so it needs its own bottom margin now that it's outside .top-row's gap */
+    .weather-card { margin-bottom: 14px; }
     .weather-card .city { font-size: 0.92rem; }
     .weather-card .updated { font-size: 0.64rem; }
     .main-weather { margin: 8px 0 4px; }
@@ -597,9 +597,10 @@
 <script>
 /* =====================================================================
    Mobile reflow: on narrow screens, move the weather card to the very
-   end of the page so the calendar is immediately followed by the meal
-   menu and schedule list (its usual desktop spot, next to the calendar,
-   would otherwise sit between them once everything stacks).
+   top of the page (above the calendar), so the calendar sits directly
+   above the meal menu and schedule list right below it. Its usual
+   desktop spot, next to the calendar, would otherwise put weather
+   between the calendar and the meal menu once everything stacks.
    ===================================================================== */
 (function () {
   const mql = window.matchMedia("(max-width: 640px)");
@@ -609,7 +610,7 @@
 
   function applyLayout(isMobile) {
     if (isMobile) {
-      layout.appendChild(weatherCard);
+      layout.insertBefore(weatherCard, layout.firstChild);
     } else {
       topRow.appendChild(weatherCard);
     }
