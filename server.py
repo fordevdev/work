@@ -202,7 +202,7 @@ def fetch_newsletters():
     for it in school_items:
         combined.append({**it, "displayTitle": it["title"]})
     for it in office_items:
-        combined.append({**it, "displayTitle": it["title"] + " (교육청)"})
+        combined.append({**it, "displayTitle": "(교육청) " + it["title"]})
     combined.sort(key=lambda x: x["date"], reverse=True)
 
     result = {"schoolName": "서울당서초등학교", "updatedAt": int(now), "items": combined}
