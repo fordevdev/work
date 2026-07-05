@@ -527,7 +527,7 @@
     <div class="school-header">
       <div>
         <div class="school-title">🏫 서울당서초등학교 일정</div>
-        <div class="school-subtitle">급식 메뉴 &amp; 시간표 &amp; 학사일정 &amp; 가정통신문 &amp; 공지사항</div>
+        <div class="school-subtitle">급식 메뉴 &amp; 시간표 &amp; 학사일정 &amp; 가정통신문 &amp; 공지사항 &amp; 당서교육통신</div>
       </div>
       <div class="school-subtitle" id="school-updated">불러오는 중...</div>
     </div>
@@ -579,6 +579,13 @@
       <div class="section-title">📢 공지사항</div>
       <ul class="notice-list" id="notice-content">
         <li class="school-status">공지사항을 불러오는 중입니다...</li>
+      </ul>
+    </div>
+
+    <div class="notice-section">
+      <div class="section-title">📰 당서교육통신</div>
+      <ul class="notice-list" id="edunews-content">
+        <li class="school-status">당서교육통신을 불러오는 중입니다...</li>
       </ul>
     </div>
   </div>
@@ -1070,6 +1077,11 @@
   renderBoardList("newsletter-content", "/api/newsletters", "가정통신문").catch(err => {
     document.getElementById("newsletter-content").innerHTML =
       `<li class="school-error">가정통신문을 불러오지 못했습니다.<br>${err.message}</li>`;
+  });
+
+  renderBoardList("edunews-content", "/api/edunews", "당서교육통신").catch(err => {
+    document.getElementById("edunews-content").innerHTML =
+      `<li class="school-error">당서교육통신을 불러오지 못했습니다.<br>${err.message}</li>`;
   });
 })();
 </script>

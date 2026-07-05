@@ -55,6 +55,12 @@ BOARDS = {
         "menuPath": "/193415/subMenu.do",
         "detailAjaxPath": "/dggb/module/board/selectBoardSenDetailAjax.do",
     },
+    "edunews": {
+        "bbsId": "BBS_0000000000215440",
+        "bbsTyCode": "base",
+        "menuPath": "/92971/subMenu.do",
+        "detailAjaxPath": "/dggb/module/board/selectBoardDetailAjax.do",
+    },
 }
 
 _list_cache = {}  # board_key -> {"data":..., "ts":...}
@@ -187,6 +193,11 @@ def fetch_board_list(board_key, count=10):
 
 def fetch_notices():
     items = fetch_board_list("notice")
+    return {"schoolName": "서울당서초등학교", "updatedAt": int(time.time()), "items": items}
+
+
+def fetch_edunews():
+    items = fetch_board_list("edunews")
     return {"schoolName": "서울당서초등학교", "updatedAt": int(time.time()), "items": items}
 
 
@@ -439,6 +450,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if parsed.path == "/api/newsletters":
             try:
                 self._send_json(fetch_newsletters())
+            except Exception as e:
+                self._send_json({"error": str(e)}, status=502)
+            return
+
+        if parsed.path == "/api/edunews":
+            try:
+                self._send_json(fetch_edunews())
             except Exception as e:
                 self._send_json({"error": str(e)}, status=502)
             return
