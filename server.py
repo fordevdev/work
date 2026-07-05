@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import time
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from urllib.parse import urlencode, urlparse, parse_qs
@@ -250,10 +251,21 @@ def fetch_day_timetable(date_str, grade, class_nm):
 
 def fetch_week_timetable(monday_str, grade, class_nm):
     monday = datetime.strptime(monday_str, "%Y%m%d")
+    date_strs = [(monday + timedelta(days=i)).strftime("%Y%m%d") for i in range(5)]
+
+    # Fetching the 5 weekday pages sequentially was slow enough (each is a
+    # separate curl round-trip to koreacharts.com) to blow past the hosting
+    # platform's request timeout, so fetch them concurrently instead.
     items = []
-    for i in range(5):
-        date_str = (monday + timedelta(days=i)).strftime("%Y%m%d")
-        for p in fetch_day_timetable(date_str, grade, class_nm):
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {pool.submit(fetch_day_timetable, d, grade, class_nm): d for d in date_strs}
+        results = {}
+        for future in as_completed(futures):
+            date_str = futures[future]
+            results[date_str] = future.result()
+
+    for date_str in date_strs:
+        for p in results.get(date_str, []):
             items.append({"date": date_str, "period": p["period"], "subject": p["subject"]})
     return {"items": items}
 
