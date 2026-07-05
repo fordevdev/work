@@ -461,8 +461,6 @@
 
   /* ---------- Mobile tightening (matches the .top-row stacking breakpoint) ---------- */
   @media (max-width: 640px) {
-    .calendar-card { order: 1; }
-    .weather-card { order: 2; }
     body { padding: 12px; }
     .top-row { gap: 14px; margin-bottom: 14px; }
     .calendar-card, .school-card {
@@ -489,7 +487,10 @@
     .hourly { gap: 5px; }
     .hour-item { min-width: 44px; padding: 5px 6px; }
 
-    /* Compact weather card so it doesn't push everything below it down */
+    /* Compact weather card so it doesn't push everything below it down;
+       it's moved to the end of .layout on mobile (see reflow script),
+       so it needs its own top margin now that it's outside .top-row's gap */
+    .weather-card { margin-top: 14px; }
     .weather-card .city { font-size: 0.92rem; }
     .weather-card .updated { font-size: 0.64rem; }
     .main-weather { margin: 8px 0 4px; }
@@ -594,6 +595,30 @@
 </div>
 
 <script>
+/* =====================================================================
+   Mobile reflow: on narrow screens, move the weather card to the very
+   end of the page so the calendar is immediately followed by the meal
+   menu and schedule list (its usual desktop spot, next to the calendar,
+   would otherwise sit between them once everything stacks).
+   ===================================================================== */
+(function () {
+  const mql = window.matchMedia("(max-width: 640px)");
+  const layout = document.querySelector(".layout");
+  const topRow = document.querySelector(".top-row");
+  const weatherCard = document.querySelector(".weather-card");
+
+  function applyLayout(isMobile) {
+    if (isMobile) {
+      layout.appendChild(weatherCard);
+    } else {
+      topRow.appendChild(weatherCard);
+    }
+  }
+
+  applyLayout(mql.matches);
+  mql.addEventListener("change", (e) => applyLayout(e.matches));
+})();
+
 /* =====================================================================
    Weather widget (Open-Meteo)
    ===================================================================== */
