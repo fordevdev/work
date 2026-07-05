@@ -458,8 +458,10 @@
   }
   .notice-link:hover .notice-title { text-decoration: underline; }
 
-  /* ---------- Mobile tightening ---------- */
-  @media (max-width: 480px) {
+  /* ---------- Mobile tightening (matches the .top-row stacking breakpoint) ---------- */
+  @media (max-width: 640px) {
+    .calendar-card { order: 1; }
+    .weather-card { order: 2; }
     body { padding: 12px; }
     .top-row { gap: 14px; margin-bottom: 14px; }
     .calendar-card, .school-card {
@@ -485,6 +487,16 @@
     .details { gap: 6px; }
     .hourly { gap: 5px; }
     .hour-item { min-width: 44px; padding: 5px 6px; }
+
+    /* Compact weather card so it doesn't push everything below it down */
+    .weather-card .city { font-size: 0.92rem; }
+    .weather-card .updated { font-size: 0.64rem; }
+    .main-weather { margin: 8px 0 4px; }
+    .weather-card .icon { font-size: 2rem; }
+    .weather-card .temp { font-size: 1.7rem; }
+    .weather-card .desc { margin-bottom: 8px; font-size: 0.76rem; }
+    .hourly { display: none; }
+    .weather-footer-note { margin-top: 6px; }
   }
 </style>
 </head>
