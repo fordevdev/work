@@ -328,6 +328,61 @@
     align-self: center;
     white-space: nowrap;
   }
+  .event-tag-dday {
+    color: #fff;
+    background: var(--school-accent);
+    font-weight: 700;
+  }
+  .event-remove {
+    flex: 0 0 auto;
+    align-self: center;
+    border: none;
+    background: none;
+    color: var(--school-text-dim);
+    font-size: 0.8rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  .dday-add-row { margin-top: 10px; }
+  .dday-add-btn {
+    border: 1px dashed var(--school-border);
+    background: none;
+    color: var(--school-text-dim);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .dday-add-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--school-hover);
+    border-radius: 12px;
+  }
+  .dday-add-form input {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--school-border);
+    border-radius: 6px;
+    background: var(--school-card-bg);
+    color: var(--school-text);
+    font-size: 0.82rem;
+  }
+  .dday-add-form button {
+    flex: 0 0 auto;
+    border: none;
+    background: var(--school-accent);
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
   .school-status, .school-error {
     color: var(--school-text-dim);
     font-size: 0.85rem;
@@ -584,6 +639,13 @@
       <div id="calendar-content">
         <div class="school-status">학사일정을 불러오는 중입니다...</div>
       </div>
+      <div class="dday-add-row">
+        <button class="dday-add-btn" id="dday-add-btn">+ D-Day 추가</button>
+      </div>
+      <div class="dday-add-form" id="dday-add-form" style="display:none;">
+        <input type="text" id="dday-add-label" placeholder="예: 여름방학, 시험 등" maxlength="40">
+        <button id="dday-add-confirm">추가</button>
+      </div>
     </div>
 
     <div class="weather-card">
@@ -638,7 +700,7 @@
     </div>
 
     <div class="school-section">
-      <div class="section-title">🗓️ 학사일정 목록</div>
+      <div class="section-title">🗓️ 일정 목록</div>
       <ul class="event-list" id="event-list-content">
         <li class="school-status">학사일정을 불러오는 중입니다...</li>
       </ul>
@@ -789,6 +851,46 @@
   const todayStr = ymd(new Date());
   let selectedDate = todayStr;
 
+  /* ---------- D-Day (personal, per-device via localStorage) ---------- */
+  const DDAY_STORAGE_KEY = "dangseo_ddays";
+
+  function loadDdays() {
+    try {
+      const raw = localStorage.getItem(DDAY_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) { /* ignore malformed storage */ }
+    return [];
+  }
+
+  function saveDdays() {
+    localStorage.setItem(DDAY_STORAGE_KEY, JSON.stringify(ddays));
+  }
+
+  let ddays = loadDdays();
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function ddayTag(dateStr) {
+    const target = new Date(dateStr.slice(0, 4), Number(dateStr.slice(4, 6)) - 1, dateStr.slice(6, 8));
+    const today = new Date(todayStr.slice(0, 4), Number(todayStr.slice(4, 6)) - 1, todayStr.slice(6, 8));
+    const diffDays = Math.round((target - today) / 86400000);
+    if (diffDays === 0) return "D-DAY";
+    return diffDays > 0 ? `D-${diffDays}` : `D+${Math.abs(diffDays)}`;
+  }
+
+  function updateDdayAddButton() {
+    const y = selectedDate.slice(0, 4), m = Number(selectedDate.slice(4, 6)), d = Number(selectedDate.slice(6, 8));
+    document.getElementById("dday-add-btn").textContent = `+ ${m}/${d}에 D-Day 추가`;
+  }
+
   async function loadMeal(dateStr) {
     const box = document.getElementById("meal-content");
     box.innerHTML = `<div class="school-status">급식 정보를 불러오는 중입니다...</div>`;
@@ -831,6 +933,7 @@
     document.querySelectorAll(".cal-day.selected").forEach(el => el.classList.remove("selected"));
     const dayEl = document.querySelector(`.cal-day[data-date="${dateStr}"]`);
     if (dayEl) dayEl.classList.add("selected");
+    updateDdayAddButton();
     loadMeal(dateStr).catch(err => {
       document.getElementById("meal-content").innerHTML =
         `<div class="school-error">급식 정보를 불러오지 못했습니다.<br>${err.message}</div>`;
@@ -862,8 +965,23 @@
     return map;
   }
 
-  function renderCalendar(year, month, events) {
+  function buildCombinedEvents(year, month, schoolEvents) {
+    const combined = {};
+    Object.keys(schoolEvents).forEach(dateStr => {
+      combined[dateStr] = schoolEvents[dateStr].map(e => ({ ...e, personal: false }));
+    });
+    ddays.forEach((item, idx) => {
+      const d = new Date(item.date.slice(0, 4), Number(item.date.slice(4, 6)) - 1, item.date.slice(6, 8));
+      if (d.getFullYear() !== year || d.getMonth() !== month) return;
+      if (!combined[item.date]) combined[item.date] = [];
+      combined[item.date].push({ name: item.label, tag: ddayTag(item.date), personal: true, idx });
+    });
+    return combined;
+  }
+
+  function renderCalendar(year, month, schoolEvents) {
     document.getElementById("cal-label").textContent = `${year}년 ${month + 1}월`;
+    const events = buildCombinedEvents(year, month, schoolEvents);
 
     const first = new Date(year, month, 1);
     const startDow = first.getDay(); // 0=Sun
@@ -892,17 +1010,24 @@
     let listHtml = "";
     const sortedDates = Object.keys(events).sort();
     if (sortedDates.length === 0) {
-      listHtml = `<li class="school-status">이번 달 학사일정이 없습니다.</li>`;
+      listHtml = `<li class="school-status">이번 달 일정이 없습니다.</li>`;
     } else {
       sortedDates.forEach(dateStr => {
         const d = new Date(dateStr.slice(0,4), dateStr.slice(4,6) - 1, dateStr.slice(6,8));
         const dowName = dowNames[d.getDay()];
         events[dateStr].forEach(ev => {
+          const tagHtml = ev.personal
+            ? `<span class="event-tag event-tag-dday">${ev.tag}</span>`
+            : (ev.tag && ev.tag !== "해당없음" ? `<span class="event-tag">${ev.tag}</span>` : "");
+          const removeHtml = ev.personal
+            ? `<button class="event-remove" data-idx="${ev.idx}" aria-label="삭제">×</button>`
+            : "";
           listHtml += `
             <li>
               <span class="event-date">${Number(dateStr.slice(4,6))}/${Number(dateStr.slice(6,8))}(${dowName})</span>
-              <span class="event-name">${ev.name}</span>
-              ${ev.tag && ev.tag !== "해당없음" ? `<span class="event-tag">${ev.tag}</span>` : ""}
+              <span class="event-name">${escapeHtml(ev.name)}</span>
+              ${tagHtml}
+              ${removeHtml}
             </li>`;
         });
       });
@@ -916,6 +1041,12 @@
     });
 
     document.getElementById("event-list-content").innerHTML = listHtml;
+  }
+
+  function removeDday(idx) {
+    ddays.splice(idx, 1);
+    saveDdays();
+    loadCalendar(viewYear, viewMonth);
   }
 
   async function loadCalendar(year, month) {
@@ -941,6 +1072,30 @@
       if (viewMonth > 11) { viewMonth = 0; viewYear++; }
       loadCalendar(viewYear, viewMonth);
     });
+
+    document.getElementById("event-list-content").addEventListener("click", (e) => {
+      const btn = e.target.closest(".event-remove");
+      if (btn) removeDday(Number(btn.dataset.idx));
+    });
+
+    const ddayForm = document.getElementById("dday-add-form");
+    document.getElementById("dday-add-btn").addEventListener("click", () => {
+      ddayForm.style.display = ddayForm.style.display === "none" ? "flex" : "none";
+      if (ddayForm.style.display === "flex") document.getElementById("dday-add-label").focus();
+    });
+    document.getElementById("dday-add-confirm").addEventListener("click", () => {
+      const input = document.getElementById("dday-add-label");
+      const label = input.value.trim();
+      if (!label) return;
+      ddays.push({ date: selectedDate, label });
+      saveDdays();
+      input.value = "";
+      ddayForm.style.display = "none";
+      loadCalendar(viewYear, viewMonth);
+    });
+    document.getElementById("dday-add-label").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("dday-add-confirm").click();
+    });
   }
 
   async function init() {
@@ -948,6 +1103,7 @@
     viewYear = now.getFullYear();
     viewMonth = now.getMonth();
     initCalendarNav();
+    updateDdayAddButton();
 
     document.getElementById("meal-reset").addEventListener("click", () => selectDate(todayStr));
 
