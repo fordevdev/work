@@ -181,6 +181,15 @@
     align-items: center;
     gap: 6px;
   }
+  .calendar-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .calendar-title-row .section-title { margin-bottom: 0; }
 
   /* meal section */
   .meal-box {
@@ -344,7 +353,6 @@
     cursor: pointer;
     padding: 0 2px;
   }
-  .dday-add-row { margin-top: 10px; }
   .dday-add-btn {
     border: 1px dashed var(--school-border);
     background: none;
@@ -358,7 +366,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 10px;
+    margin-bottom: 12px;
     padding: 10px 12px;
     background: var(--school-hover);
     border-radius: 12px;
@@ -630,7 +638,14 @@
   <!-- ================= Top row: calendar (2/3) + weather (1/3) ================= -->
   <div class="top-row">
     <div class="calendar-card">
-      <div class="section-title">📅 캘린더 <span class="cal-hint">(날짜를 클릭하면 급식이 표시됩니다)</span></div>
+      <div class="calendar-title-row">
+        <div class="section-title">📅 캘린더 <span class="cal-hint">(날짜를 클릭하면 급식이 표시됩니다)</span></div>
+        <button class="dday-add-btn" id="dday-add-btn">+ D-Day 추가</button>
+      </div>
+      <div class="dday-add-form" id="dday-add-form" style="display:none;">
+        <input type="text" id="dday-add-label" placeholder="예: 여름방학, 시험 등" maxlength="40">
+        <button id="dday-add-confirm">추가</button>
+      </div>
       <div class="cal-nav">
         <button id="cal-prev" aria-label="이전 달">‹</button>
         <div class="cal-label" id="cal-label">-</div>
@@ -639,13 +654,9 @@
       <div id="calendar-content">
         <div class="school-status">학사일정을 불러오는 중입니다...</div>
       </div>
-      <div class="dday-add-row">
-        <button class="dday-add-btn" id="dday-add-btn">+ D-Day 추가</button>
-      </div>
-      <div class="dday-add-form" id="dday-add-form" style="display:none;">
-        <input type="text" id="dday-add-label" placeholder="예: 여름방학, 시험 등" maxlength="40">
-        <button id="dday-add-confirm">추가</button>
-      </div>
+      <ul class="event-list" id="event-list-content">
+        <li class="school-status">일정을 불러오는 중입니다...</li>
+      </ul>
     </div>
 
     <div class="weather-card">
@@ -661,10 +672,7 @@
   <!-- ================= School widget ================= -->
   <div class="school-card">
     <div class="school-header">
-      <div>
-        <div class="school-title">🏫 서울당서초등학교 일정</div>
-        <div class="school-subtitle">급식 메뉴 &amp; 시간표 &amp; 학사일정 &amp; 가정통신문 &amp; 공지사항 &amp; 당서교육통신</div>
-      </div>
+      <div class="school-title">🏫 서울 당서초등학교</div>
       <div class="school-subtitle" id="school-updated">불러오는 중...</div>
     </div>
 
@@ -697,13 +705,6 @@
       <div id="timetable-content">
         <div class="school-status">시간표를 불러오는 중입니다...</div>
       </div>
-    </div>
-
-    <div class="school-section">
-      <div class="section-title">🗓️ 일정 목록</div>
-      <ul class="event-list" id="event-list-content">
-        <li class="school-status">학사일정을 불러오는 중입니다...</li>
-      </ul>
     </div>
 
     <div class="notice-section">
