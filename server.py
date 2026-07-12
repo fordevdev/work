@@ -761,6 +761,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_html(render_notes_index())
             return
 
+        if parsed.path == "/notes/hld":
+            try:
+                with open(os.path.join("static", "hld.html"), encoding="utf-8") as f:
+                    self._send_html(f.read())
+            except FileNotFoundError:
+                self._send_html("<p>페이지를 찾을 수 없습니다.</p>", status=404)
+            return
+
         if parsed.path.startswith("/notes/"):
             slug = parsed.path[len("/notes/"):]
             note = find_note(slug)

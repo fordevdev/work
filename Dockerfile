@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir markdown
 WORKDIR /app
 COPY index.html server.py ./
 COPY notes/ ./notes/
+COPY static/ ./static/
 
 EXPOSE 8080
 CMD ["python3", "server.py"]

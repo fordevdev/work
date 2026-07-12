@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Second Brain for Mattermost — HLD</title>
+<style>
+  :root {
+    --ink: #eef0f3;
+    --ink-2: #d8dce2;
+    --paper: #10131a;
+    --paper-2: #171b24;
+    --line: #313846;
+    --muted: #8992a3;
+    --flow: #52c2b9;
+    --flow-soft: rgba(82, 194, 185, 0.14);
+    --signal: #a79bf0;
+    --signal-soft: rgba(167, 155, 240, 0.14);
+    --eff-low: #7fb87a;
+    --eff-med: #d1a13f;
+    --eff-high: #d9704f;
+    --eff-low-soft: rgba(127, 184, 122, 0.16);
+    --eff-med-soft: rgba(209, 161, 63, 0.16);
+    --eff-high-soft: rgba(217, 112, 79, 0.16);
+    --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"] {
+    --ink: #191d24;
+    --ink-2: #3b414d;
+    --paper: #eef0f3;
+    --paper-2: #e2e5ea;
+    --line: #c7ccd4;
+    --muted: #5c6474;
+    --flow: #24837c;
+    --flow-soft: rgba(36, 131, 124, 0.10);
+    --signal: #5e50c9;
+    --signal-soft: rgba(94, 80, 201, 0.10);
+    --eff-low: #4f8a4a;
+    --eff-med: #a97a1c;
+    --eff-high: #b6502f;
+    --eff-low-soft: rgba(79, 138, 74, 0.12);
+    --eff-med-soft: rgba(169, 122, 28, 0.12);
+    --eff-high-soft: rgba(182, 80, 47, 0.12);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --ink: #191d24;
+      --ink-2: #3b414d;
+      --paper: #eef0f3;
+      --paper-2: #e2e5ea;
+      --line: #c7ccd4;
+      --muted: #5c6474;
+      --flow: #24837c;
+      --flow-soft: rgba(36, 131, 124, 0.10);
+      --signal: #5e50c9;
+      --signal-soft: rgba(94, 80, 201, 0.10);
+      --eff-low: #4f8a4a;
+      --eff-med: #a97a1c;
+      --eff-high: #b6502f;
+      --eff-low-soft: rgba(79, 138, 74, 0.12);
+      --eff-med-soft: rgba(169, 122, 28, 0.12);
+      --eff-high-soft: rgba(182, 80, 47, 0.12);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 32px 96px;
+  }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+  p { margin: 0; }
+  code, .mono { font-family: var(--font-mono); }
+
+  .back-link {
+    display: inline-block;
+    margin-bottom: 24px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .back-link:hover { color: var(--flow); }
+
+  /* ---------- Header ---------- */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--flow);
+  }
+  h1 {
+    font-size: clamp(1.7rem, 3vw, 2.5rem);
+    font-weight: 500;
+    line-height: 1.15;
+    max-width: 18ch;
+  }
+  .thesis {
+    font-size: 1.02rem;
+    line-height: 1.65;
+    max-width: 62ch;
+    color: var(--ink-2);
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 6px;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 22px; height: 3px; border-radius: 2px; flex: 0 0 auto; }
+  .swatch.flow { background: var(--flow); }
+  .swatch.signal { background: var(--signal); background-image: repeating-linear-gradient(90deg, var(--signal) 0 6px, transparent 6px 10px); }
+
+  /* ---------- Section headers ---------- */
+  .section-head { margin-bottom: 22px; }
+  .section-head h2 { font-size: 1.35rem; font-weight: 500; }
+  .section-head .sub { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+  section { margin-bottom: 64px; }
+
+  /* ---------- Pipeline diagram ---------- */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+    align-items: stretch;
+  }
+  .stage {
+    position: relative;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 148px;
+  }
+  .stage + .stage { margin-left: 22px; }
+  .stage::after {
+    content: "→";
+    position: absolute;
+    right: -22px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--flow);
+    font-size: 1.1rem;
+    font-family: var(--font-mono);
+  }
+  .stage:last-child::after { content: ""; }
+  .stage-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--flow);
+    font-family: var(--font-mono);
+  }
+  .stage h3 { font-size: 1.02rem; font-weight: 500; line-height: 1.3; }
+  .stage .desc { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+  .stage .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: var(--flow-soft);
+    color: var(--flow);
+    white-space: nowrap;
+  }
+
+  /* ---------- Feedback return path ---------- */
+  .feedback-path {
+    margin-top: 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border: 1px dashed var(--signal);
+    border-radius: 10px;
+    background: var(--signal-soft);
+    flex-wrap: wrap;
+  }
+  .feedback-path .fp-label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--signal);
+    flex: 0 0 auto;
+  }
+  .feedback-path .fp-flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.84rem;
+    color: var(--ink-2);
+  }
+  .feedback-path .fp-flow b { color: var(--ink); font-weight: 600; }
+  .fp-arrow { color: var(--signal); font-family: var(--font-mono); }
+
+  @media (max-width: 880px) {
+    .pipeline { grid-template-columns: 1fr; }
+    .stage + .stage { margin-left: 0; margin-top: 26px; }
+    .stage::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -26px; transform: translateX(-50%); }
+    .stage:last-child::after { content: ""; }
+  }
+
+  /* ---------- Effort chip ---------- */
+  .effort {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .effort.high { background: var(--eff-high-soft); color: var(--eff-high); }
+  .effort.med { background: var(--eff-med-soft); color: var(--eff-med); }
+  .effort.low { background: var(--eff-low-soft); color: var(--eff-low); }
+  .effort::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* ---------- Deep dive cards ---------- */
+  .deepdives {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+  }
+  @media (max-width: 980px) {
+    .deepdives { grid-template-columns: 1fr; }
+  }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px;
+    background: var(--paper-2);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .card h3 { font-size: 1.12rem; font-weight: 500; }
+  .card .why {
+    font-size: 0.86rem;
+    color: var(--ink-2);
+    line-height: 1.55;
+    padding-left: 12px;
+    border-left: 2px solid var(--signal);
+  }
+  .flow-list {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .flow-list li {
+    position: relative;
+    padding: 9px 0 9px 22px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    border-bottom: 1px dotted var(--line);
+  }
+  .flow-list li:last-child { border-bottom: none; }
+  .flow-list li::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 17px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--flow);
+  }
+  .flow-list b { color: var(--ink); font-weight: 600; }
+  .flow-list span.note { color: var(--muted); }
+
+  .formula {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--flow);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* ---------- Footnote ---------- */
+  .footnote {
+    margin-top: 8px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    max-width: 68ch;
+    line-height: 1.6;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card, .stage { transition: border-color 0.15s ease; }
+  }
+</style>
+</head>
+<body>
+
+<a class="back-link" href="/notes">← 개발 노트로</a>
+
+<div class="hero">
+  <div class="eyebrow">High-Level Design · v0.1</div>
+  <h1>Mattermost 사내 Second&nbsp;Brain</h1>
+  <p class="thesis">
+    JIRA · Confluence · Mattermost 히스토리를 하나의 지식 계층으로 색인하고,
+    <b>최신성 · 출처신뢰도 · 사용자 피드백</b> 세 축으로 가중치를 매겨 검색한 뒤,
+    Mattermost 봇이 MCP 툴을 통해 답하는 구조입니다.
+  </p>
+  <div class="legend">
+    <div class="legend-item"><span class="swatch flow"></span> 기본 데이터 흐름 (질의 → 답변)</div>
+    <div class="legend-item"><span class="swatch signal"></span> 피드백 루프 (비동기/배치)</div>
+  </div>
+</div>
+
+<section>
+  <div class="section-head">
+    <h2>1. 전체 시스템 구성 (Overall HLD)</h2>
+    <p class="sub">좌→우로 하나의 질의가 처리되는 경로, 하단은 리액션이 지식 저장소로 되돌아가는 피드백 경로.</p>
+  </div>
+
+  <div class="pipeline">
+    <div class="stage">
+      <div class="stage-label">Sources</div>
+      <h3>사내 데이터 소스</h3>
+      <p class="desc">JIRA 티켓, Confluence 페이지, Mattermost 채널 이력</p>
+      <div class="tags"><span class="tag">read-only</span></div>
+    </div>
+    <div class="stage">
+      <div class="stage-label">Ingestion</div>
+      <h3>수집·색인 파이프라인</h3>
+      <p class="desc">커넥터 → 청킹 → 임베딩 → 메타데이터 태깅</p>
+      <div class="tags"><span class="tag">webhook/poll</span></div>
+    </div>
+    <div class="stage">
+      <div class="stage-label">Storage</div>
+      <h3>지식 저장소</h3>
+      <p class="desc">벡터 검색 + 그래프 관계 + 메타 점수</p>
+      <div class="tags"><span class="tag">vector</span><span class="tag">graph</span></div>
+    </div>
+    <div class="stage">
+      <div class="stage-label">Ranking</div>
+      <h3>하이브리드 검색·랭킹</h3>
+      <p class="desc">유사도 × 최신성 × 신뢰도 × 피드백 종합 스코어링</p>
+      <div class="tags"><span class="tag">rerank</span></div>
+    </div>
+    <div class="stage">
+      <div class="stage-label">MCP</div>
+      <h3>MCP 서버</h3>
+      <p class="desc">search_knowledge / get_related / submit_feedback 툴 노출</p>
+      <div class="tags"><span class="tag">tool call</span></div>
+    </div>
+    <div class="stage">
+      <div class="stage-label">Orchestration</div>
+      <h3>LLM ↔ Mattermost 봇</h3>
+      <p class="desc">답변 생성, 출처 인용, 리액션 수집</p>
+      <div class="tags"><span class="tag">Claude</span></div>
+    </div>
+  </div>
+
+  <div class="feedback-path">
+    <div class="fp-label">Feedback loop</div>
+    <div class="fp-flow">
+      <b>사용자 리액션</b><span class="fp-arrow">···→</span>
+      <b>답변→청크 어텐션 매핑</b><span class="fp-arrow">···→</span>
+      <b>베이지안 가중치 갱신</b><span class="fp-arrow">···→</span>
+      지식 저장소로 반영 (배치, 주기적)
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>2. 컴포넌트 딥다이브</h2>
+    <p class="sub">전체 6단계 중 설계·운영 난도가 가장 높다고 판단한 3곳. MCP 서버·봇 오케스트레이션은 정형화된 패턴이 이미 있어 상대적으로 공수가 낮습니다.</p>
+  </div>
+
+  <div class="deepdives">
+
+    <div class="card">
+      <div class="card-top">
+        <h3>A. 수집·동기화 파이프라인</h3>
+        <span class="effort high">effort: high</span>
+      </div>
+      <p class="why">API 3종의 인증·레이트리밋이 제각각이고, 증분 동기화에서 누락·중복을 막는 로직 자체가 오래 걸리는 지점입니다.</p>
+      <ul class="flow-list">
+        <li><b>커넥터</b> — JIRA/Confluence REST, Mattermost API <span class="note">(각기 다른 페이지네이션/레이트리밋)</span></li>
+        <li><b>변경 감지</b> — 웹훅 우선, 미지원 구간은 폴링+diff</li>
+        <li><b>청킹·임베딩</b> — 문서 구조(제목/코드블록) 보존한 청크 분할</li>
+        <li><b>메타 태깅</b> — 출처·작성자·수정일·권한 스코프 부착</li>
+        <li><b>업서트</b> — 동일 문서 재수집 시 중복 방지 키 관리</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <h3>B. 하이브리드 검색·랭킹</h3>
+        <span class="effort high">effort: high</span>
+      </div>
+      <p class="why">네 가지 신호의 가중치 튜닝과, 오래됐지만 여전히 맞는 문서를 억울하게 밀어내지 않는 균형이 핵심 난제입니다.</p>
+      <div class="formula">score = sim(q,d) × time_decay(d) × authority(d) × feedback(d)</div>
+      <ul class="flow-list">
+        <li><b>벡터 검색</b> — 질의 임베딩과 근접한 청크 후보군 확보</li>
+        <li><b>그래프 확장</b> — <code>supersedes</code> / <code>references</code> 엣지로 관련 문서 추가 탐색</li>
+        <li><b>충돌 해소</b> — 대체된 문서는 자동 하위 랭크 또는 제외</li>
+        <li><b>멀티홉</b> — 복잡 질의는 검색→중간추론→재검색 에이전틱 루프</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <h3>C. 피드백 어텐션·가중치 갱신</h3>
+        <span class="effort med">effort: medium-high</span>
+      </div>
+      <p class="why">답변 하나가 여러 청크를 조합하기 때문에, 반응 하나를 어느 청크의 공로/과실로 돌릴지가 근본적으로 모호합니다.</p>
+      <ul class="flow-list">
+        <li><b>수집</b> — 봇 답변에 대한 이모지 리액션·스레드 응답</li>
+        <li><b>어텐션 매핑</b> — 답변 생성에 실제 인용된 청크에만 귀속</li>
+        <li><b>스무딩</b> — <code>(👍+1)/(전체+2)</code> 베이지안 추정으로 소수 피드백 과민반응 방지</li>
+        <li><b>감쇠·재계산</b> — 오래된 피드백 비중 축소, 주기적 배치 재계산</li>
+        <li><span class="note">유저 다양성 보정 — 동일인 반복 반응 디스카운트</span></li>
+      </ul>
+    </div>
+
+  </div>
+
+  <p class="footnote">
+    참고: MCP 서버(툴 스펙 정의)와 Mattermost 봇(멘션 수신·답변 게시)은 각각 표준 MCP 서버 보일러플레이트와 Mattermost Bot API로 구현 가능해 상대적으로 예측 가능한 공수입니다 — 초기 스프린트는 A·B·C에 집중하는 것을 권장합니다.
+  </p>
+</section>
+</body>
+</html>

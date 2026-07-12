@@ -114,4 +114,4 @@ score = sim(q, d) × time_decay(d) × authority(d) × feedback(d)
 
 ## 참고
 
-전체 시스템 다이어그램은 별도로 [HLD 아티팩트](https://claude.ai/code/artifact/5a8c6a40-9a12-4158-8cbc-cdc67e19ad65)로 정리해뒀다.
+전체 시스템 다이어그램은 [HLD 페이지](/notes/hld)로 따로 정리해뒀다.
