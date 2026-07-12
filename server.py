@@ -19,9 +19,20 @@ from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from urllib.parse import urlencode, urlparse, parse_qs
 
+import markdown as markdown_module
+
 PORT = int(os.environ.get("PORT", 8080))
 NOTICE_BASE = "https://dangseo.sen.es.kr"
 LIST_AJAX_PATH = "/dggb/module/board/selectBoardListAjax.do"
+
+# ---------------------------------------------------------------------------
+# Dev notes board: a separate personal space on the same server (/notes),
+# sibling to the family weather/school page at /. Each post is a markdown
+# file named YYYY-MM-DD-slug.md in NOTES_DIR; the first "# " line is the
+# title, the next paragraph is used as the index-page excerpt.
+# ---------------------------------------------------------------------------
+NOTES_DIR = "notes"
+NOTE_FILENAME_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)\.md$")
 
 # Timetable: NEIS's own elsTimetable API silently caps responses at 5 rows
 # per day even when list_total_count reports more (confirmed by comparing
@@ -428,6 +439,236 @@ def render_notice_detail_page(detail):
 </html>"""
 
 
+def _parse_note_file(filename):
+    m = NOTE_FILENAME_RE.match(filename)
+    if not m:
+        return None
+    date_str, slug = m.group(1), m.group(2)
+
+    path = os.path.join(NOTES_DIR, filename)
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+
+    lines = text.splitlines()
+    title = slug
+    body_start = 0
+    for i, line in enumerate(lines):
+        if line.startswith("# "):
+            title = line[2:].strip()
+            body_start = i + 1
+            break
+
+    excerpt = ""
+    for line in lines[body_start:]:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            excerpt = stripped
+            break
+
+    return {
+        "slug": slug,
+        "date": date_str,
+        "title": title,
+        "excerpt": excerpt,
+        "filename": filename,
+    }
+
+
+def list_notes():
+    if not os.path.isdir(NOTES_DIR):
+        return []
+    notes = []
+    for filename in os.listdir(NOTES_DIR):
+        note = _parse_note_file(filename)
+        if note:
+            notes.append(note)
+    notes.sort(key=lambda n: n["date"], reverse=True)
+    return notes
+
+
+def find_note(slug):
+    for note in list_notes():
+        if note["slug"] == slug:
+            return note
+    return None
+
+
+NOTES_PAGE_HEAD = """<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    color-scheme: light dark;
+    --page-bg1: #4facfe;
+    --page-bg2: #00c6ff;
+    --school-card-bg: #ffffff;
+    --school-text: #1f2937;
+    --school-text-dim: #6b7280;
+    --school-accent: #2563eb;
+    --school-border: #e5e7eb;
+    --school-hover: #f3f4f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --school-card-bg: #1f2937;
+      --school-text: #f3f4f6;
+      --school-text-dim: #9ca3af;
+      --school-accent: #60a5fa;
+      --school-border: #374151;
+      --school-hover: #2d3748;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+    background: linear-gradient(135deg, var(--page-bg1), var(--page-bg2));
+    padding: 20px;
+    color: var(--school-text);
+  }
+  .layout { max-width: 720px; margin: 0 auto; }
+  .board-header { color: #fff; margin-bottom: 20px; }
+  .board-header h1 { font-size: 1.5rem; font-weight: 700; }
+  .board-header p { font-size: 0.85rem; opacity: 0.85; margin-top: 4px; }
+  .card {
+    background: var(--school-card-bg);
+    border-radius: 20px;
+    padding: 24px 26px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+    margin-bottom: 18px;
+  }
+  .post-list { list-style: none; }
+  .post-item {
+    display: block;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--school-border);
+    text-decoration: none;
+    color: inherit;
+  }
+  .post-item:last-child { border-bottom: none; }
+  .post-date {
+    font-size: 0.72rem;
+    color: var(--school-text-dim);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .post-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 4px 0 6px;
+  }
+  .post-excerpt { font-size: 0.85rem; color: var(--school-text-dim); }
+  .empty { color: var(--school-text-dim); font-size: 0.9rem; }
+  .back-link {
+    display: inline-block;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    color: #fff;
+    text-decoration: none;
+    opacity: 0.9;
+  }
+  .back-link:hover { text-decoration: underline; }
+  .note-meta {
+    font-size: 0.8rem;
+    color: var(--school-text-dim);
+    margin-bottom: 20px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .note-content h1 { font-size: 1.4rem; margin: 24px 0 12px; }
+  .note-content h2 { font-size: 1.2rem; margin: 22px 0 10px; }
+  .note-content h3 { font-size: 1.05rem; margin: 18px 0 8px; }
+  .note-content p { margin-bottom: 12px; line-height: 1.7; font-size: 0.92rem; }
+  .note-content ul, .note-content ol { margin: 0 0 12px 22px; line-height: 1.7; font-size: 0.92rem; }
+  .note-content li { margin-bottom: 4px; }
+  .note-content code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: var(--school-hover);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  .note-content pre {
+    background: var(--school-hover);
+    padding: 14px 16px;
+    border-radius: 10px;
+    overflow-x: auto;
+    margin-bottom: 14px;
+  }
+  .note-content pre code { background: none; padding: 0; }
+  .note-content a { color: var(--school-accent); }
+  .note-content hr { border: none; border-top: 1px solid var(--school-border); margin: 20px 0; }
+  .note-content blockquote {
+    border-left: 3px solid var(--school-accent);
+    padding-left: 14px;
+    color: var(--school-text-dim);
+    margin-bottom: 12px;
+  }
+</style>"""
+
+
+def render_notes_index():
+    notes = list_notes()
+    if notes:
+        items_html = "".join(
+            f'<a class="post-item" href="/notes/{html_module.escape(n["slug"])}">'
+            f'<div class="post-date">{html_module.escape(n["date"])}</div>'
+            f'<div class="post-title">{html_module.escape(n["title"])}</div>'
+            f'<div class="post-excerpt">{html_module.escape(n["excerpt"])}</div>'
+            f'</a>'
+            for n in notes
+        )
+    else:
+        items_html = '<p class="empty">아직 글이 없습니다.</p>'
+
+    return f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<title>개발 노트</title>
+{NOTES_PAGE_HEAD}
+</head>
+<body>
+<div class="layout">
+  <div class="board-header">
+    <h1>📓 개발 노트</h1>
+    <p>만들면서 정리해두는 개인 기록 공간</p>
+  </div>
+  <div class="card">
+    <div class="post-list">{items_html}</div>
+  </div>
+</div>
+</body>
+</html>"""
+
+
+def render_note_page(note):
+    path = os.path.join(NOTES_DIR, note["filename"])
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+
+    lines = text.splitlines()
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]
+    body_md = "\n".join(lines)
+    body_html = markdown_module.markdown(body_md, extensions=["fenced_code", "tables"])
+
+    title = html_module.escape(note["title"])
+    return f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<title>{title} · 개발 노트</title>
+{NOTES_PAGE_HEAD}
+</head>
+<body>
+<div class="layout">
+  <a class="back-link" href="/notes">← 목록으로</a>
+  <div class="card">
+    <h1 style="font-size:1.4rem;">{title}</h1>
+    <div class="note-meta">{html_module.escape(note["date"])}</div>
+    <div class="note-content">{body_html}</div>
+  </div>
+</div>
+</body>
+</html>"""
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def _send_json(self, obj, status=200):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -506,7 +747,31 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(body)
             return
 
+        if parsed.path == "/notes" or parsed.path == "/notes/":
+            self._send_html(render_notes_index())
+            return
+
+        if parsed.path.startswith("/notes/"):
+            slug = parsed.path[len("/notes/"):]
+            note = find_note(slug)
+            if not note:
+                self._send_html("<p>글을 찾을 수 없습니다. <a href=\"/notes\">← 목록으로</a></p>", status=404)
+                return
+            try:
+                self._send_html(render_note_page(note))
+            except Exception as e:
+                self._send_html(f"<p>글을 불러오지 못했습니다: {html_module.escape(str(e))}</p>", status=500)
+            return
+
         return super().do_GET()
+
+    def _send_html(self, html_text, status=200):
+        body = html_text.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def log_message(self, fmt, *args):
         pass
