@@ -439,6 +439,14 @@ def render_notice_detail_page(detail):
 </html>"""
 
 
+def _strip_markdown_inline(text):
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    text = re.sub(r"\*\*([^*]*)\*\*", r"\1", text)
+    text = re.sub(r"\*([^*]*)\*", r"\1", text)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    return text
+
+
 def _parse_note_file(filename):
     m = NOTE_FILENAME_RE.match(filename)
     if not m:
@@ -462,7 +470,9 @@ def _parse_note_file(filename):
     for line in lines[body_start:]:
         stripped = line.strip()
         if stripped and not stripped.startswith("#"):
-            excerpt = stripped
+            excerpt = _strip_markdown_inline(stripped)
+            if len(excerpt) > 140:
+                excerpt = excerpt[:140].rstrip() + "…"
             break
 
     return {
