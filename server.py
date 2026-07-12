@@ -639,7 +639,7 @@ NOTES_PAGE_HEAD = """<meta charset="UTF-8">
   table.gantt {
     border-collapse: collapse;
     width: 100%;
-    min-width: 620px;
+    min-width: 540px;
     font-size: 0.74rem;
     table-layout: fixed;
   }
@@ -649,7 +649,7 @@ NOTES_PAGE_HEAD = """<meta charset="UTF-8">
     text-align: center;
     height: 30px;
   }
-  table.gantt thead th:first-child { width: 150px; }
+  table.gantt thead th:first-child { width: 170px; }
   table.gantt thead th {
     background: var(--school-hover);
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -675,9 +675,10 @@ NOTES_PAGE_HEAD = """<meta charset="UTF-8">
   table.gantt .c-e { background: #d97706; }
   table.gantt .c-f { background: #db2777; }
   table.gantt .c-g { background: #64748b; }
-  /* phase boundaries: col 5 = start of W4 (Phase 2), col 8 = start of W7 (Phase 3) */
+  table.gantt .c-qa { background: #9ca3af; }
+  /* milestone boundaries: col 5 = start of W4 (after M1), col 7 = start of W6 (after M2) */
   table.gantt tr > *:nth-child(5),
-  table.gantt tr > *:nth-child(8) {
+  table.gantt tr > *:nth-child(7) {
     border-left: 2px solid var(--school-text-dim);
   }
 </style>"""

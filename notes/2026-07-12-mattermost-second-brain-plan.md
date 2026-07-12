@@ -106,71 +106,57 @@ score = sim(q, d) × time_decay(d) × authority(d) × feedback(d)
 - 자주 인용/무시되는 문서 dashboard
 - 오래된 문서 업데이트 알림
 
-## 5. 구현 계획
+## 5. 구현 계획 (2~3인 병렬 기준)
 
-**2026-07-13(다음 주 월요일)부터 2026-09-04까지 8주** 계획. Phase 1(W1–3)은 최소 기능으로 가치를 빠르게 검증하고, Phase 2(W4–6)에서 graph·권한을, Phase 3(W7–8)에서 feedback loop을 채운다.
+1인이 순차로 진행하면 8주 걸리는 일정이지만, **인원을 3명으로 나눠 병렬로 진행**하면 의존성이 있는 핵심 경로(A→B→C→D→E→F)는 유지하면서도 각자 독립적으로 진행 가능한 부분(스키마 설계, tool spec, whitelist 정책 등)을 동시에 처리해서 **2026-07-13(다음 주 월요일)부터 6주(~2026-08-21)**로 단축한다.
+
+역할 분담:
+
+- **Dev 1 — Data/Ingestion**: 소스 connector, 권한 whitelist, ingestion 안정화
+- **Dev 2 — Knowledge Store & Ranking**: 가장 난도 높은 알고리즘 파트 (schema, ranking, feedback 가중치)
+- **Dev 3 — MCP Server & Bot Integration**: 플랫폼 연동, 기존 bot 통합, rollout
 
 <div class="gantt-wrap">
 <table class="gantt">
 <thead>
-<tr><th></th><th>W1</th><th>W2</th><th>W3</th><th>W4</th><th>W5</th><th>W6</th><th>W7</th><th>W8</th></tr>
+<tr><th></th><th>W1</th><th>W2</th><th>W3</th><th>W4</th><th>W5</th><th>W6</th></tr>
 </thead>
 <tbody>
-<tr><th>Ingestion (A)</th><td class="bar c-a"></td><td class="bar c-a"></td><td></td><td class="bar c-a"></td><td></td><td></td><td></td><td></td></tr>
-<tr><th>Knowledge Store (B)</th><td></td><td class="bar c-b"></td><td class="bar c-b"></td><td class="bar c-b"></td><td></td><td></td><td></td><td></td></tr>
-<tr><th>Ranking Service (C)</th><td></td><td></td><td class="bar c-c"></td><td></td><td class="bar c-c"></td><td class="bar c-c"></td><td class="bar c-c"></td><td class="bar c-c"></td></tr>
-<tr><th>MCP Server (D)</th><td></td><td></td><td class="bar c-d"></td><td class="bar c-d"></td><td></td><td></td><td class="bar c-d"></td><td></td></tr>
-<tr><th>Bot Integration (E)</th><td></td><td></td><td class="bar c-e"></td><td></td><td class="bar c-e"></td><td></td><td class="bar c-e"></td><td></td></tr>
-<tr><th>Feedback Module (F)</th><td></td><td></td><td></td><td></td><td></td><td></td><td class="bar c-f"></td><td class="bar c-f"></td></tr>
-<tr><th>Observability (G)</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="bar c-g"></td></tr>
+<tr><th>Dev 1 · Ingestion</th><td class="bar c-a">A</td><td class="bar c-a">A</td><td class="bar c-a">A</td><td class="bar c-a">A</td><td class="bar c-g">G</td><td class="bar c-qa">QA</td></tr>
+<tr><th>Dev 2 · Store/Ranking</th><td class="bar c-b">B</td><td class="bar c-b">B</td><td class="bar c-c">C</td><td class="bar c-f">F</td><td class="bar c-f">F</td><td class="bar c-qa">QA</td></tr>
+<tr><th>Dev 3 · MCP/Bot</th><td class="bar c-d">D</td><td class="bar c-d">D</td><td class="bar c-e">E</td><td class="bar c-e">E</td><td class="bar c-e">E</td><td class="bar c-qa">QA</td></tr>
 </tbody>
 </table>
 </div>
-<p style="font-size:0.78rem;color:var(--school-text-dim);margin-bottom:14px;">굵은 세로선 = phase 경계 (Phase 1: W1–3 · Phase 2: W4–6 · Phase 3: W7–8)</p>
+<p style="font-size:0.78rem;color:var(--school-text-dim);margin-bottom:14px;">A 수집·동기화 · B Knowledge Store · C Ranking · D MCP Server · E Bot Integration · F Feedback 모듈 · G Observability · QA 통합테스트. M1(W3말) 최소기능 데모 → M2(W5말) feedback loop 통합 → M3(W6말) rollout.</p>
 
-### W1 (07/13 ~ 07/17) — Ingestion 기초
-- JIRA connector (auth, issue+comment pull)
-- Confluence connector (page+version history pull)
-- Chunking 로직 초안 (문서 구조 보존)
+### W1 (07/13 ~ 07/17)
+- **Dev 1**: JIRA connector + Confluence connector (auth, 기본 pull)
+- **Dev 2**: Vector DB provisioning (pgvector), schema 설계 (`documents`/`chunks`/`edges`/`feedback_scores`) — 실 데이터 없이 선행 가능
+- **Dev 3**: MCP server scaffolding + tool spec (`search_knowledge` 등, stub 응답으로 우선 정의)
 
-### W2 (07/20 ~ 07/24) — Knowledge Store 구축
-- Vector DB provisioning (pgvector)
-- Schema 설계: `documents`/`chunks`
-- Embedding batch job + upsert API 연동
-- Ingestion → Knowledge Store end-to-end 연결
+### W2 (07/20 ~ 07/24)
+- **Dev 1**: Chunking·embedding 파이프라인, Mattermost 채널 히스토리 backfill connector 착수
+- **Dev 2**: Upsert API + `sim × recency`만 반영한 기본 ranking (Dev1이 넣어준 초기 데이터로 테스트)
+- **Dev 3**: `search_knowledge`를 Dev2의 초기 ranking에 연결, 기존 bot에 읽기 전용 질의 경로 통합 (기존 핸들러와 routing 분리)
 
-### W3 (07/27 ~ 07/31) — 최소 기능 검색 + Bot 연동 (Phase 1 완료)
-- Ranking: `sim × recency`만 반영한 기본 scoring
-- MCP server scaffolding + `search_knowledge` tool
-- 기존 Mattermost bot에 MCP client 연결 (읽기 전용 질의)
-- Phase 1 데모/검증
+### W3 (07/27 ~ 07/31) — M1: 최소 기능 데모
+- **Dev 1**: Permission whitelist 설계/적용, [knowledge graph](/notes/concepts/knowledge-graph) relation 후보 추출 (`supersedes`/`references`)
+- **Dev 2**: Graph expansion 검색 + `supersedes` 충돌 해소, authority scoring
+- **Dev 3**: Bot 답변에 citation 포맷팅, 3인 통합 데모
 
-### W4 (08/03 ~ 08/07) — Mattermost 이력 + Graph 스키마
-- Mattermost 채널 히스토리 backfill connector
-- Graph edges 스키마 (`references`/`supersedes`)
-- Authority scoring 설계 (출처 타입별 가중치)
+### W4 (08/03 ~ 08/07)
+- **Dev 1**: Ingestion 안정화(dedup/에러 처리), observability 데이터 수집 파이프라인 착수
+- **Dev 2**: [Feedback attention mapping](/notes/concepts/bayesian-smoothing) — 답변에 인용된 chunk 기록 + Bayesian smoothing 계산
+- **Dev 3**: Bot 답변에 reaction(👍/👎) 유도 + event 구독, `submit_feedback` tool 연동
 
-### W5 (08/10 ~ 08/14) — Graph 확장 + Citation
-- Ranking에 graph expansion 추가 (N-hop 관련 문서)
-- `supersedes` 자동 충돌 해소
-- Bot 답변에 출처 citation 포맷팅
+### W5 (08/10 ~ 08/14) — M2: Feedback loop 통합
+- **Dev 1**: Observability dashboard (자주 인용/무시되는 문서)
+- **Dev 2**: Time decay + 주기적 재계산 batch, [multi-hop agentic retrieval](/notes/concepts/agentic-retrieval) 프로토타입
+- **Dev 3**: Bot 통합 폴리싱 (에러 핸들링, 응답 지연 안내 등)
 
-### W6 (08/17 ~ 08/21) — 권한/Whitelist + Phase 2 검증
-- 수집 대상 space whitelist 적용
-- End-to-end 통합 테스트, 버그 수정 buffer
-- Phase 2 데모/검증
-
-### W7 (08/24 ~ 08/28) — Feedback Loop
-- Bot 답변에 reaction(👍/👎) 유도 + event 구독
-- Attention mapping (답변에 인용된 chunk 기록)
-- `submit_feedback` MCP tool 구현
-- Bayesian smoothing 계산 로직
-
-### W8 (08/31 ~ 09/04) — 마무리 (Phase 3 완료)
-- Time decay + 주기적 재계산 batch
-- [Multi-hop agentic retrieval](/notes/concepts/agentic-retrieval) 프로토타입 (복잡 질의용)
-- Observability dashboard (자주 인용/무시되는 문서) — stretch
-- 전체 rollout 준비 및 최종 검증
+### W6 (08/17 ~ 08/21) — M3: 최종 rollout
+- **전원**: End-to-end 통합 테스트, 버그 수정, rollout 준비 및 최종 데모
 
 ## 참고
 
