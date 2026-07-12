@@ -106,56 +106,53 @@ score = sim(q, d) × time_decay(d) × authority(d) × feedback(d)
 - 자주 인용/무시되는 문서 dashboard
 - 오래된 문서 업데이트 알림
 
-## 5. 구현 계획 (2~3인 병렬 기준)
+## 5. 구현 계획 (2인 병렬 기준)
 
-1인이 순차로 진행하면 8주 걸리는 일정이지만, **인원을 3명으로 나눠 병렬로 진행**하면 의존성이 있는 핵심 경로(A→B→C→D→E→F)는 유지하면서도 각자 독립적으로 진행 가능한 부분(스키마 설계, tool spec, whitelist 정책 등)을 동시에 처리해서 **2026-07-13(다음 주 월요일)부터 6주(~2026-08-21)**로 단축한다.
+**2인으로 병렬 진행**한다. 핵심 의존 경로(A→B→C→D→E→F)는 그대로 있지만, Dev 1이 데이터·플랫폼(A/B/D/G)을, Dev 2가 지능·bot(C/E/F)을 맡아 서로 다른 주에 서로를 막지 않고 진행하도록 설계했다. 3인 대비 인원이 줄어든 만큼 **2026-07-13(다음 주 월요일)부터 7주(~2026-08-28)**로 1주 늘렸다.
 
 역할 분담:
 
-- **Dev 1 — Data/Ingestion**: 소스 connector, 권한 whitelist, ingestion 안정화
-- **Dev 2 — Knowledge Store & Ranking**: 가장 난도 높은 알고리즘 파트 (schema, ranking, feedback 가중치)
-- **Dev 3 — MCP Server & Bot Integration**: 플랫폼 연동, 기존 bot 통합, rollout
+- **Dev 1 — Data & Platform**: Ingestion(A), Knowledge Store(B), MCP Server(D), Observability(G)
+- **Dev 2 — Intelligence & Bot**: Ranking Service(C), Bot Integration(E), Feedback 모듈(F)
 
 <div class="gantt-wrap">
 <table class="gantt">
 <thead>
-<tr><th></th><th>W1</th><th>W2</th><th>W3</th><th>W4</th><th>W5</th><th>W6</th></tr>
+<tr><th></th><th>W1</th><th>W2</th><th>W3</th><th>W4</th><th>W5</th><th>W6</th><th>W7</th></tr>
 </thead>
 <tbody>
-<tr><th>Dev 1 · Ingestion</th><td class="bar c-a">A</td><td class="bar c-a">A</td><td class="bar c-a">A</td><td class="bar c-a">A</td><td class="bar c-g">G</td><td class="bar c-qa">QA</td></tr>
-<tr><th>Dev 2 · Store/Ranking</th><td class="bar c-b">B</td><td class="bar c-b">B</td><td class="bar c-c">C</td><td class="bar c-f">F</td><td class="bar c-f">F</td><td class="bar c-qa">QA</td></tr>
-<tr><th>Dev 3 · MCP/Bot</th><td class="bar c-d">D</td><td class="bar c-d">D</td><td class="bar c-e">E</td><td class="bar c-e">E</td><td class="bar c-e">E</td><td class="bar c-qa">QA</td></tr>
+<tr><th>Dev 1 · Data/Platform</th><td class="bar c-a">A</td><td class="bar c-b">B</td><td class="bar c-a">A</td><td class="bar c-a">A</td><td class="bar c-d">D</td><td class="bar c-g">G</td><td class="bar c-qa">QA</td></tr>
+<tr><th>Dev 2 · Intel/Bot</th><td class="bar c-e">E</td><td class="bar c-c">C</td><td class="bar c-e">E</td><td class="bar c-c">C</td><td class="bar c-e">E</td><td class="bar c-f">F</td><td class="bar c-qa">QA</td></tr>
 </tbody>
 </table>
 </div>
-<p style="font-size:0.78rem;color:var(--school-text-dim);margin-bottom:14px;">A 수집·동기화 · B Knowledge Store · C Ranking · D MCP Server · E Bot Integration · F Feedback 모듈 · G Observability · QA 통합테스트. M1(W3말) 최소기능 데모 → M2(W5말) feedback loop 통합 → M3(W6말) rollout.</p>
+<p style="font-size:0.78rem;color:var(--school-text-dim);margin-bottom:14px;">A 수집·동기화 · B Knowledge Store · C Ranking · D MCP Server · E Bot Integration · F Feedback 모듈 · G Observability · QA 통합테스트. M1(W3말) 최소기능 데모 → M2(W5말) graph+feedback wiring 완료 → M3(W7말) rollout.</p>
 
 ### W1 (07/13 ~ 07/17)
 - **Dev 1**: JIRA connector + Confluence connector (auth, 기본 pull)
-- **Dev 2**: Vector DB provisioning (pgvector), schema 설계 (`documents`/`chunks`/`edges`/`feedback_scores`) — 실 데이터 없이 선행 가능
-- **Dev 3**: MCP server scaffolding + tool spec (`search_knowledge` 등, stub 응답으로 우선 정의)
+- **Dev 2**: 기존 bot 코드 분석 + 신규 지식질의 핸들러 routing 분리 설계 (Dev1의 데이터를 기다리는 동안 선행 가능)
 
 ### W2 (07/20 ~ 07/24)
-- **Dev 1**: Chunking·embedding 파이프라인, Mattermost 채널 히스토리 backfill connector 착수
-- **Dev 2**: Upsert API + `sim × recency`만 반영한 기본 ranking (Dev1이 넣어준 초기 데이터로 테스트)
-- **Dev 3**: `search_knowledge`를 Dev2의 초기 ranking에 연결, 기존 bot에 읽기 전용 질의 경로 통합 (기존 핸들러와 routing 분리)
+- **Dev 1**: Chunking·embedding 파이프라인, Knowledge Store schema + vector DB provisioning (pgvector), upsert API
+- **Dev 2**: `sim × recency`만 반영한 기본 ranking (Dev1의 초기 데이터로 테스트), bot routing 분리 마무리
 
 ### W3 (07/27 ~ 07/31) — M1: 최소 기능 데모
-- **Dev 1**: Permission whitelist 설계/적용, [knowledge graph](/notes/concepts/knowledge-graph) relation 후보 추출 (`supersedes`/`references`)
-- **Dev 2**: Graph expansion 검색 + `supersedes` 충돌 해소, authority scoring
-- **Dev 3**: Bot 답변에 citation 포맷팅, 3인 통합 데모
+- **Dev 1**: Mattermost 채널 히스토리 backfill connector; MCP server scaffolding + tool spec (`search_knowledge` 등, stub)
+- **Dev 2**: `search_knowledge`를 기본 ranking에 연결, 기존 bot에 읽기 전용 질의 통합 + citation 포맷팅, 통합 데모
 
 ### W4 (08/03 ~ 08/07)
-- **Dev 1**: Ingestion 안정화(dedup/에러 처리), observability 데이터 수집 파이프라인 착수
-- **Dev 2**: [Feedback attention mapping](/notes/concepts/bayesian-smoothing) — 답변에 인용된 chunk 기록 + Bayesian smoothing 계산
-- **Dev 3**: Bot 답변에 reaction(👍/👎) 유도 + event 구독, `submit_feedback` tool 연동
+- **Dev 1**: Permission whitelist 설계/적용, [knowledge graph](/notes/concepts/knowledge-graph) relation 후보 추출 (`supersedes`/`references`)
+- **Dev 2**: Graph expansion 검색 + `supersedes` 충돌 해소, authority scoring
 
-### W5 (08/10 ~ 08/14) — M2: Feedback loop 통합
+### W5 (08/10 ~ 08/14) — M2: Graph + Feedback 배선 완료
+- **Dev 1**: MCP `submit_feedback` tool 연동, ingestion 안정화(dedup/에러 처리)
+- **Dev 2**: Bot 답변에 reaction(👍/👎) 유도 + event 구독, [feedback attention mapping](/notes/concepts/bayesian-smoothing) 착수
+
+### W6 (08/17 ~ 08/21)
 - **Dev 1**: Observability dashboard (자주 인용/무시되는 문서)
-- **Dev 2**: Time decay + 주기적 재계산 batch, [multi-hop agentic retrieval](/notes/concepts/agentic-retrieval) 프로토타입
-- **Dev 3**: Bot 통합 폴리싱 (에러 핸들링, 응답 지연 안내 등)
+- **Dev 2**: Bayesian smoothing 계산 + time decay, [multi-hop agentic retrieval](/notes/concepts/agentic-retrieval) 프로토타입
 
-### W6 (08/17 ~ 08/21) — M3: 최종 rollout
+### W7 (08/24 ~ 08/28) — M3: 최종 rollout
 - **전원**: End-to-end 통합 테스트, 버그 수정, rollout 준비 및 최종 데모
 
 ## 참고

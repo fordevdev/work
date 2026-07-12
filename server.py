@@ -639,7 +639,7 @@ NOTES_PAGE_HEAD = """<meta charset="UTF-8">
   table.gantt {
     border-collapse: collapse;
     width: 100%;
-    min-width: 540px;
+    min-width: 600px;
     font-size: 0.74rem;
     table-layout: fixed;
   }
