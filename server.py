@@ -34,6 +34,11 @@ LIST_AJAX_PATH = "/dggb/module/board/selectBoardListAjax.do"
 NOTES_DIR = "notes"
 NOTE_FILENAME_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})-(.+)\.md$")
 
+# Glossary/explainer pages linked from posts (e.g. /notes/concepts/mcp),
+# not dated and not listed on the /notes index.
+CONCEPTS_DIR = "concepts"
+CONCEPT_SLUG_RE = re.compile(r"^[a-z0-9-]+$")
+
 # Timetable: NEIS's own elsTimetable API silently caps responses at 5 rows
 # per day even when list_total_count reports more (confirmed by comparing
 # identical queries with different pSize values), so any 6th-period class
@@ -611,6 +616,70 @@ NOTES_PAGE_HEAD = """<meta charset="UTF-8">
     color: var(--school-text-dim);
     margin-bottom: 12px;
   }
+  .note-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 14px;
+    font-size: 0.86rem;
+  }
+  .note-content th, .note-content td {
+    border: 1px solid var(--school-border);
+    padding: 6px 10px;
+    text-align: left;
+  }
+  .note-content th { background: var(--school-hover); }
+
+  /* Gantt chart embedded as raw HTML in markdown posts */
+  .gantt-wrap {
+    overflow-x: auto;
+    margin-bottom: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--school-border);
+  }
+  table.gantt {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 620px;
+    font-size: 0.74rem;
+    table-layout: fixed;
+  }
+  table.gantt th, table.gantt td {
+    border: 1px solid var(--school-border);
+    padding: 6px 4px;
+    text-align: center;
+    height: 30px;
+  }
+  table.gantt thead th:first-child { width: 150px; }
+  table.gantt thead th {
+    background: var(--school-hover);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-weight: 700;
+  }
+  table.gantt tbody th {
+    text-align: left;
+    padding-left: 10px;
+    font-weight: 600;
+    background: var(--school-hover);
+    white-space: nowrap;
+  }
+  table.gantt td.bar {
+    color: #fff;
+    font-weight: 700;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    border-radius: 4px;
+  }
+  table.gantt .c-a { background: #2563eb; }
+  table.gantt .c-b { background: #0891b2; }
+  table.gantt .c-c { background: #7c3aed; }
+  table.gantt .c-d { background: #059669; }
+  table.gantt .c-e { background: #d97706; }
+  table.gantt .c-f { background: #db2777; }
+  table.gantt .c-g { background: #64748b; }
+  /* phase boundaries: col 5 = start of W4 (Phase 2), col 8 = start of W7 (Phase 3) */
+  table.gantt tr > *:nth-child(5),
+  table.gantt tr > *:nth-child(8) {
+    border-left: 2px solid var(--school-text-dim);
+  }
 </style>"""
 
 
@@ -642,6 +711,45 @@ def render_notes_index():
   </div>
   <div class="card">
     <div class="post-list">{items_html}</div>
+  </div>
+</div>
+</body>
+</html>"""
+
+
+def find_concept(slug):
+    if not CONCEPT_SLUG_RE.match(slug):
+        return None
+    path = os.path.join(CONCEPTS_DIR, f"{slug}.md")
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    lines = text.splitlines()
+    title = slug
+    if lines and lines[0].startswith("# "):
+        title = lines[0][2:].strip()
+    return {"slug": slug, "title": title, "text": text}
+
+
+def render_concept_page(concept):
+    lines = concept["text"].splitlines()
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]
+    body_html = markdown_module.markdown("\n".join(lines), extensions=["fenced_code", "tables"])
+    title = html_module.escape(concept["title"])
+    return f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<title>{title} · 개발 노트</title>
+{NOTES_PAGE_HEAD}
+</head>
+<body>
+<div class="layout">
+  <a class="back-link" href="/notes">← 목록으로</a>
+  <div class="card">
+    <h1 style="font-size:1.4rem;">{title}</h1>
+    <div class="note-content">{body_html}</div>
   </div>
 </div>
 </body>
@@ -767,6 +875,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     self._send_html(f.read())
             except FileNotFoundError:
                 self._send_html("<p>페이지를 찾을 수 없습니다.</p>", status=404)
+            return
+
+        if parsed.path.startswith("/notes/concepts/"):
+            slug = parsed.path[len("/notes/concepts/"):]
+            concept = find_concept(slug)
+            if not concept:
+                self._send_html("<p>글을 찾을 수 없습니다. <a href=\"/notes\">← 목록으로</a></p>", status=404)
+                return
+            try:
+                self._send_html(render_concept_page(concept))
+            except Exception as e:
+                self._send_html(f"<p>글을 불러오지 못했습니다: {html_module.escape(str(e))}</p>", status=500)
             return
 
         if parsed.path.startswith("/notes/"):

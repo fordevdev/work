@@ -10,6 +10,7 @@ WORKDIR /app
 COPY index.html server.py ./
 COPY notes/ ./notes/
 COPY static/ ./static/
+COPY concepts/ ./concepts/
 
 EXPOSE 8080
 CMD ["python3", "server.py"]
