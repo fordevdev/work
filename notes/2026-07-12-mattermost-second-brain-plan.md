@@ -1,4 +1,4 @@
-# Mattermost 사내 Second Brain — 요구사항 정리 및 구현 계획
+# Second Brain을 활용한 Mattermost Agent(Bot) 구성
 
 사내 문의가 주로 JIRA 티켓, Confluence 페이지, 그리고 Mattermost 채널에 쌓인 과거 답변에 의존하고 있다. 이 지식을 하나로 모아 Mattermost bot이 직접 답하게 만들면 반복 문의 비용을 크게 줄일 수 있을 것 같아 정리한다. **Bot server 자체는 이미 존재**하므로, 이번 작업의 범위는 그 bot이 참조할 "Knowledge Layer"를 새로 만들고 bot에 연동하는 것이다.
 
